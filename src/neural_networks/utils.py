@@ -2,7 +2,9 @@ import json
 
 
 def convert_to_json(data):
-    if data.isinstance(dict):
-        pass
+    if not data.isinstance(dict):
+        # TODO add convert numpy array to json
+        prediction = {'prediction': None}
     else:
-        pass
+        prediction = {'prediction': data}
+    return prediction
