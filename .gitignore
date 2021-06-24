@@ -139,3 +139,4 @@ cython_debug/
 
 src/service/log
 .idea/
+src/neural_networks/models/weights
