@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 
-from ..config import IMG_SIZE
+# from ..config import IMG_SIZE
 
 
 class DamageSegmentation:
@@ -26,7 +26,7 @@ class DamageSegmentation:
         return x
 
     def build_densenet121_unet(self):
-        inputs = Input((IMG_SIZE, IMG_SIZE, 3))
+        inputs = Input((512, 512, 3))
         densenet = tf.keras.applications.DenseNet121(include_top=False, weights=None, input_tensor=inputs)
         s1 = densenet.get_layer("input_1").output
         s2 = densenet.get_layer("conv1/relu").output

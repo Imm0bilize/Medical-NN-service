@@ -1,7 +1,7 @@
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 
-from ..config import IMG_SIZE
+# from ..config import IMG_SIZE
 
 
 class LungSegmentation:
@@ -19,7 +19,7 @@ class LungSegmentation:
 
         params_trans = dict(kernel_size=(2, 2), strides=(2, 2), padding="same")
 
-        inputs = Input((IMG_SIZE, IMG_SIZE, 1))
+        inputs = Input((512, 512, 1))
         encodeA = Conv2D(filters=self.n_filter, **params)(inputs)
         encodeA = Conv2D(filters=self.n_filter, **params)(encodeA)
         poolA = MaxPooling2D(pool_size=(2, 2))(encodeA)
