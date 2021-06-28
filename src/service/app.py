@@ -1,20 +1,23 @@
 import atexit
+from threading import Timer
 
 import uvicorn
 from fastapi import FastAPI, File, UploadFile
 from loguru import logger
-from threading import Timer
 
-from src.neural_networks.prediction import Prediction
+from utils import get_post_processed_data
+from src.neural_networks.nn import NeuralNetwork
 
 
+# in second, default 5 min
 TIME_TO_SHUTDOWN_SESSION: float = 300.0
 
 timer = None
-pred = None
+NN = None
 app = FastAPI()
 logger.add('log/debug.log', format='{time} {level} {message}',
            level='DEBUG', rotation='00:00', compression='zip')
+
 
 def set_timer():
     global timer
@@ -26,9 +29,14 @@ def set_timer():
 
 @app.post('/upload')
 async def create_prediction(file: UploadFile = File(...)):
-    data = await file.read()
-    # prediction = await model.predict(data)
-    set_timer()
+    if NN is not None:
+        set_timer()
+        data = await file.read()
+        mask = NN.create_prediction(data)
+        return get_post_processed_data(data, mask)
+    else:
+        logger.warning('The session was not created, but there was an attempt to upload file')
+        return {'error': 'the session was not created'}
 
 
 @app.get('/start/{params}')
@@ -43,13 +51,13 @@ def start_session(params: str):
      ct-dmg-det - Detection damage on CT
     """
 
-    global pred
+    global NN
 
     try:
-        pred = Prediction(params, logger)
+        NN = NeuralNetwork(params, logger)
     except KeyError:
         logger.error(f'Can`t start session with this params -- {params}')
-        pred = None
+        NN = None
         return {'error': 'Starting session interrupted'}
 
     set_timer()
