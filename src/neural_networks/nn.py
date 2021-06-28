@@ -80,5 +80,5 @@ class NeuralNetwork:
 
     def create_prediction(self, data):
         data = self._prepare_data(data)
-        predictions = self._model.predict(data)
-        return predictions
+        mask = self._model.predict(data)[0]
+        return mask
