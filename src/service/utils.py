@@ -53,8 +53,8 @@ def merge_mask_with_image(image: bytes, mask: np.ndarray,
 
 
 def convert_to_json(meta: Dict[str, str], image: tf.Tensor) -> str:
-    data = {'meta': meta, 'image': image.tobytes()}
-    return json.dump(data)
+    data = {'meta': meta, 'image': (image * 255).tolist()}
+    return json.dumps(data)
 
 
 def get_post_processed_data(dcm: bytes, mask: np.ndarray) -> str:
