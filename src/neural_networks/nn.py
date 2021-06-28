@@ -3,8 +3,7 @@ import tensorflow_io as tfio
 
 from .models import LungSegmentation, DamageSegmentation
 from .error_handler import incorrect_start_sess_param
-from .config import PATH_TO_DAMAGE_MODEL_WEIGHTS, PATH_TO_LUNG_MODEL_WEIGHTS,\
-                    IMG_SIZE, MIN_BOUND, MAX_BOUND, DICOM_BACKGROUND, VALUE_FOR_EQUAL_HU
+from .config import IMG_SIZE, MIN_BOUND, MAX_BOUND, DICOM_BACKGROUND, VALUE_FOR_EQUAL_HU
 
 
 class NeuralNetwork:
@@ -19,12 +18,6 @@ class NeuralNetwork:
                                   incorrect_start_sess_param)
         self._model = model_loader()
         self._logger = logger
-
-    def __del__(self):
-        try:
-            del self._model
-        except NameError:  # error in start session params
-            pass
 
     def _create_model_with_preprocessing(self, preprocess_func, model):
         inputs = tf.keras.layers.Input((IMG_SIZE, IMG_SIZE, 1))
@@ -65,12 +58,12 @@ class NeuralNetwork:
         return dcm
 
     def _load_dmg_seg_model(self):
-        dmg_model = DamageSegmentation(PATH_TO_DAMAGE_MODEL_WEIGHTS).build_densenet121_unet()
+        dmg_model = DamageSegmentation().build_densenet121_unet()
         return self._create_model_with_preprocessing(preprocess_func=self._preprocessing_dicom,
                                                      model=dmg_model)
 
     def _load_lung_seg_model(self):
-        lung_model = LungSegmentation(PATH_TO_LUNG_MODEL_WEIGHTS).build_unet()
+        lung_model = LungSegmentation().build_unet()
         return self._create_model_with_preprocessing(preprocess_func=self._preprocessing_for_lung_seg,
                                                      model=lung_model)
 
