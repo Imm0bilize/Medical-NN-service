@@ -2,7 +2,7 @@ import tensorflow as tf
 import tensorflow_io as tfio
 
 
-import utils
+import error_handler
 from models.lung_segmentation import LungSegmentation
 from models.dmg_segmentation import DamageSegmentation
 from config import PATH_TO_DAMAGE_MODEL_WEIGHTS, PATH_TO_LUNG_MODEL_WEIGHTS,\
@@ -17,7 +17,8 @@ class NeuralNetwork:
             'ct-lung-dmg-seg': self._create_lung_and_dmg_model,
             'ct-dmg-det': self._load_ct_detection_model
         }
-        model_loader = params.get(param, utils.incorrect_start_sess_param)
+        model_loader = params.get(param,
+                                  error_handler.incorrect_start_sess_param)
         self._model = model_loader()
         self._logger = logger
 
