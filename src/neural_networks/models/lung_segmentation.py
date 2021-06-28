@@ -1,3 +1,5 @@
+import os
+
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 
@@ -5,8 +7,7 @@ from tensorflow.keras.models import Model
 
 
 class LungSegmentation:
-    def __init__(self, path_to_weights, n_filter=16, dropout=0.2, use_upsampling=False, use_dropout=True, concat_axis=-1):
-        self.path_to_weights = path_to_weights
+    def __init__(self, n_filter=16, dropout=0.2, use_upsampling=False, use_dropout=True, concat_axis=-1):
         self.n_filter = n_filter
         self.dropout = dropout
         self.use_upsampling = use_upsampling
@@ -79,5 +80,5 @@ class LungSegmentation:
 
         model = Model(inputs=[inputs], outputs=[prediction], name='UNET')
 
-        model.load_weights(self.path_to_weights)
+        model.load_weights(os.path.join(os.path.dirname(__file__), 'weights', 'lung_segmentation_weights.h5'))
         return model

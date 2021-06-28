@@ -1,3 +1,5 @@
+import os
+
 import tensorflow as tf
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
@@ -6,9 +8,6 @@ from tensorflow.keras.models import Model
 
 
 class DamageSegmentation:
-    def __init__(self, path_to_weights):
-        self.path_to_weights = path_to_weights
-
     def conv_block(self, inputs, num_filters):
         x = Conv2D(num_filters, 3, padding="same")(inputs)
         x = BatchNormalization()(x)
@@ -42,5 +41,5 @@ class DamageSegmentation:
 
         outputs = Conv2D(1, 1, padding="same", activation="sigmoid")(d4)
         model = Model(inputs=inputs, outputs=outputs)
-        model.load_weights(self.path_to_weights)
+        model.load_weights(os.path.join(os.path.dirname(__file__), 'weights', 'damage_segment_weights.h5'))
         return model
