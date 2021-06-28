@@ -6,6 +6,8 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_io as tfio
 
+from src.neural_networks.config import IMG_SIZE
+
 
 def get_dicom_meta(dcm: bytes) -> Dict[str, str]:
     tags = tf.constant([
@@ -37,12 +39,12 @@ def merge_mask_with_image(image: bytes, mask: np.ndarray,
 
     image = tfio.image.decode_dicom_image(image)[0]  # for shape (SIZE, SIZE, 1)
     image = tf.cast(image, dtype=tf.float32)
-    image = image - 30720
+    image = image - 30720  # TFIO dicom shift
     image = image / np.max(image)
     image = tf.image.grayscale_to_rgb(image)
 
     tmp_red_image = tf.convert_to_tensor(
-                    np.array([[segment_rgb_color for _ in range(512)] for _ in range(512)]),
+                    np.array([[segment_rgb_color for _ in range(IMG_SIZE)] for _ in range(IMG_SIZE)]),
                     dtype=tf.float32
     )
 

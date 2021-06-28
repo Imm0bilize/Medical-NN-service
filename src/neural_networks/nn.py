@@ -1,12 +1,10 @@
 import tensorflow as tf
 import tensorflow_io as tfio
 
-
-import error_handler
-from models.lung_segmentation import LungSegmentation
-from models.dmg_segmentation import DamageSegmentation
-from config import PATH_TO_DAMAGE_MODEL_WEIGHTS, PATH_TO_LUNG_MODEL_WEIGHTS,\
-                   IMG_SIZE, MIN_BOUND, MAX_BOUND, DICOM_BACKGROUND, VALUE_FOR_EQUAL_HU
+from .models import LungSegmentation, DamageSegmentation
+from .error_handler import incorrect_start_sess_param
+from .config import PATH_TO_DAMAGE_MODEL_WEIGHTS, PATH_TO_LUNG_MODEL_WEIGHTS,\
+                    IMG_SIZE, MIN_BOUND, MAX_BOUND, DICOM_BACKGROUND, VALUE_FOR_EQUAL_HU
 
 
 class NeuralNetwork:
@@ -18,7 +16,7 @@ class NeuralNetwork:
             'ct-dmg-det': self._load_ct_detection_model
         }
         model_loader = params.get(param,
-                                  error_handler.incorrect_start_sess_param)
+                                  incorrect_start_sess_param)
         self._model = model_loader()
         self._logger = logger
 
