@@ -24,7 +24,7 @@ class DamageSegmentation:
         x = self.conv_block(x, num_filters)
         return x
 
-    def build_densenet121_unet(self):
+    def build_model(self):
         inputs = Input((512, 512, 3))
         densenet = tf.keras.applications.DenseNet121(include_top=False, weights=None, input_tensor=inputs)
         s1 = densenet.get_layer("input_1").output

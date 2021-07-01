@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_io as tfio
 
-from src.neural_networks.config import IMG_SIZE
+from src.neural_networks.config import IMG_SIZE, MASK_MERGE_THRESHOLD
 
 
 def get_dicom_meta(dcm: bytes) -> Dict[str, str]:
@@ -47,8 +47,8 @@ def merge_mask_with_image(image: bytes, mask: np.ndarray,
                     np.array([[segment_rgb_color for _ in range(IMG_SIZE)] for _ in range(IMG_SIZE)]),
                     dtype=tf.float32
     )
-
-    merged_image = tf.where(mask > 0.0, tmp_red_image, image)
+    print(np.min(image), np.max(image))
+    merged_image = tf.where(mask > MASK_MERGE_THRESHOLD, tmp_red_image, image)
     return merged_image.numpy()
 
 
