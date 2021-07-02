@@ -173,5 +173,5 @@ class Yolo:
             output_tensors.append(pred_tensor)
 
         model = tf.keras.Model(input_layer, output_tensors)
-        model.load_weights(os.path.join(os.path.dirname(__file__), 'weights', 'yolo3_custom.h5'))
+        model.load_weights(os.path.join(os.path.dirname(__file__), 'weights', 'yolov3_custom.h5'))
         return model
