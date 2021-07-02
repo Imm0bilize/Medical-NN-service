@@ -1,11 +1,12 @@
 import atexit
+import argparse
 from threading import Timer
 
 import uvicorn
 from fastapi import FastAPI, File, UploadFile
 from loguru import logger
 
-from utils import get_post_processed_data
+import utils
 from src.neural_networks.nn import NeuralNetwork
 
 
@@ -32,10 +33,11 @@ async def create_prediction(file: UploadFile = File(...)):
     if NN is not None:
         set_timer()
         data = await file.read()
-        mask = NN.create_prediction(data)
-        return get_post_processed_data(data, mask)
+        prediction = NN.create_prediction(data)
+        logger.debug('Prediction created')
+        return utils.get_post_processed_data(data, prediction)
     else:
-        logger.warning('The session was not created, but there was an attempt to upload file')
+        logger.error('The session was not created, but there was an attempt to upload file')
         return {'error': 'the session was not created'}
 
 
@@ -45,16 +47,18 @@ def start_session(params: str):
     Starting session and timer for auto close session, loading models
 
     :param params:
-     ct-lung-seg - Segmentation lung on CT,
      ct-dmg-seg - Segmentation damage on CT,
-     ct-lung-dmg-seg - Segmentation lung and damage on CT and calculate damage percent
      ct-dmg-det - Detection damage on CT
     """
 
     global NN
 
     try:
-        NN = NeuralNetwork(params, logger)
+        if NN is None:
+            NN = NeuralNetwork(params)
+        else:
+            NN = None
+            NN = NeuralNetwork(params)
     except KeyError:
         logger.error(f'Can`t start session with this params -- {params}')
         NN = None
@@ -68,9 +72,10 @@ def start_session(params: str):
 @app.get('/close')
 def close_session():
     global pred
+    interesting_pixels = NN.get_num_interesting_pixels()
     pred = None
     logger.debug('Session stopping')
-    return {'info': 'Session stopping'}
+    return {'info': 'Session stopping', 'interesting_pixels': interesting_pixels}
 
 
 @atexit.register
@@ -85,8 +90,15 @@ def start_page():
 
 @logger.catch
 def main():
+    parser = argparse.ArgumentParser(
+        description="Service for covid-19 segmentation and detection in dicom files",
+        add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("--host", default='localhost')
+    parser.add_argument("--port", default=8080)
+    args = parser.parse_args()
+
     logger.debug('Starting service')
-    uvicorn.run("app:app", host="localhost", port=8080, log_level="debug")
+    uvicorn.run("app:app", host=args.host, port=args.port, log_level="warning")
 
 
 if __name__ == '__main__':
