@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Model
 
-# from ..config import IMG_SIZE
+from src.neural_networks.config import IMG_SIZE
 
 
 class DamageSegmentation:
@@ -25,14 +25,14 @@ class DamageSegmentation:
         return x
 
     def build_model(self):
-        inputs = Input((512, 512, 3))
+        inputs = Input((IMG_SIZE, IMG_SIZE, 3))
         densenet = tf.keras.applications.DenseNet121(include_top=False, weights=None, input_tensor=inputs)
-        s1 = densenet.get_layer("input_1").output
-        s2 = densenet.get_layer("conv1/relu").output
-        s3 = densenet.get_layer("pool2_relu").output
-        s4 = densenet.get_layer("pool3_relu").output
+        s1 = densenet.get_layer(index=0).output
+        s2 = densenet.get_layer(index=4).output
+        s3 = densenet.get_layer(index=50).output
+        s4 = densenet.get_layer(index=138).output
 
-        b1 = densenet.get_layer("pool4_relu").output
+        b1 = densenet.get_layer(index=310).output
 
         d1 = self.decoder_block(b1, s4, 512)
         d2 = self.decoder_block(d1, s3, 256)
