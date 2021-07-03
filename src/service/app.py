@@ -1,23 +1,30 @@
 import os
-import atexit
 from threading import Timer
 
 import uvicorn
 from fastapi import FastAPI, File, UploadFile
 from loguru import logger
 
-import utils
+import src.service.utils as utils
+from src.service.argparser import args
 from src.neural_networks.nn import NeuralNetwork
-from argparser import args
+
 
 # in second, default 5 min
 TIME_TO_SHUTDOWN_SESSION: float = float(args.time_to_shutdown_session)
 
 timer = None
 NN = None
-app = FastAPI()
+
 logger.add(os.path.join(args.path_to_log_dir, 'debug.log'), format='{time} {level} {message}',
            level='DEBUG', rotation='512 KB', compression='zip')
+
+
+def stopping_service():
+    logger.debug('Stopping service')
+
+
+app = FastAPI(on_shutdown=[stopping_service])
 
 
 def set_timer():
@@ -78,11 +85,6 @@ def close_session():
     return {'info': 'Session stopping', 'interesting_pixels': interesting_pixels}
 
 
-@atexit.register
-def stopping_service():
-    logger.debug('Stopping service')
-
-
 @app.get('/')
 def start_page():
     return {'info': 'Service working'}
@@ -94,7 +96,7 @@ def main():
                  f"\tHost: {args.host}, Port: {args.port}\n"
                  f"\tСheck the working capacity : http://{args.host}:{args.port}/\n"
                  f"\tLog file: {os.path.join(args.path_to_log_dir, 'debug.log')}")
-    uvicorn.run("app:app", host=args.host, port=args.port, log_level="warning")
+    uvicorn.run("src.service.app:app", host=args.host, port=args.port, log_level="warning")
 
 
 if __name__ == '__main__':
