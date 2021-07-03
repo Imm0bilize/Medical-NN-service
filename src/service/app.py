@@ -93,10 +93,10 @@ def start_page():
 @logger.catch
 def main():
     logger.debug(f"\nStarting service with params:\n"
-                 f"\tHost: {args.host}, Port: {args.port}\n"
-                 f"\tСheck the working capacity : http://{args.host}:{args.port}/\n"
+                 f"\tHost: {args.host}, Port: 8080\n"
+                 f"\tСheck the working capacity : http://{args.host}:8080/\n"
                  f"\tLog file: {os.path.join(args.path_to_log_dir, 'debug.log')}")
-    uvicorn.run("src.service.app:app", host=args.host, port=args.port, log_level="warning")
+    uvicorn.run("src.service.app:app", host=args.host, port=8080, log_level="warning")
 
 
 if __name__ == '__main__':
