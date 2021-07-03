@@ -1,5 +1,5 @@
+import os
 import atexit
-import argparse
 from threading import Timer
 
 import uvicorn
@@ -8,16 +8,16 @@ from loguru import logger
 
 import utils
 from src.neural_networks.nn import NeuralNetwork
-
+from argparser import args
 
 # in second, default 5 min
-TIME_TO_SHUTDOWN_SESSION: float = 300.0
+TIME_TO_SHUTDOWN_SESSION: float = float(args.time_to_shutdown_session)
 
 timer = None
 NN = None
 app = FastAPI()
-logger.add('log/debug.log', format='{time} {level} {message}',
-           level='DEBUG', rotation='00:00', compression='zip')
+logger.add(os.path.join(args.path_to_log_dir, 'debug.log'), format='{time} {level} {message}',
+           level='DEBUG', rotation='512 KB', compression='zip')
 
 
 def set_timer():
@@ -54,13 +54,13 @@ def start_session(params: str):
     global NN
 
     try:
-        if NN is None:
-            NN = NeuralNetwork(params)
-        else:
-            NN = None
-            NN = NeuralNetwork(params)
+        NN = NeuralNetwork(params)
     except KeyError:
         logger.error(f'Can`t start session with this params -- {params}')
+        NN = None
+        return {'error': 'Starting session interrupted'}
+    except ValueError:
+        logger.error(f'Model weights for params [{params}] could not be loaded')
         NN = None
         return {'error': 'Starting session interrupted'}
 
@@ -90,14 +90,10 @@ def start_page():
 
 @logger.catch
 def main():
-    parser = argparse.ArgumentParser(
-        description="Service for covid-19 segmentation and detection in dicom files",
-        add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--host", default='localhost')
-    parser.add_argument("--port", default=8080)
-    args = parser.parse_args()
-
-    logger.debug('Starting service')
+    logger.debug(f"\nStarting service with params:\n"
+                 f"\tHost: {args.host}, Port: {args.port}\n"
+                 f"\tСheck the working capacity : http://{args.host}:{args.port}/\n"
+                 f"\tLog file: {os.path.join(args.path_to_log_dir, 'debug.log')}")
     uvicorn.run("app:app", host=args.host, port=args.port, log_level="warning")
 
 
