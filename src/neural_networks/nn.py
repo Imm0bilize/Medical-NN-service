@@ -8,7 +8,7 @@ from pydicom.filebase import DicomBytesIO
 from PIL import Image
 
 from .models import DamageSegmentation, Yolo
-from .error_handler import incorrect_start_sess_param
+from .error_handler import incorrect_start_sess_param, models_weights_isnt_defined
 from .config import MIN_BOUND, MAX_BOUND, DICOM_BACKGROUND, MASK_MERGE_THRESHOLD
 
 
@@ -187,7 +187,10 @@ class NeuralNetwork:
         }
         self.strategy = params.get(param,
                                    incorrect_start_sess_param)()
-        self._model = self.strategy.load_model()
+        try:
+            self._model = self.strategy.load_model()
+        except OSError as e:
+            models_weights_isnt_defined()
 
     def _set_outside_scanner_to_air(self, raw_pixel):
         raw_pixel[raw_pixel <= -1000] = 0
