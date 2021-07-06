@@ -17,7 +17,7 @@ Model: YOLOv3
 ## Install dependencies
 
 ```bash
-    pip install -r requirements.py
+    pip install -r requirements.txt
 ```
 
 ## Run service
@@ -27,6 +27,6 @@ Model: YOLOv3
 ARGS:
 1. --host (default: 0.0.0.0)
 2. --path_to_log_dir (default: "logs/")
-3. --time_to_shutdown_session (Time in seconds after how long the model will be unloaded from RAM if it is not accessed, default: 5 min)
+3. --time_to_shutdown_session (Time in seconds after how long the model will be unloaded from RAM if it is not accessed, default: 300 sec)
 
 The service runs on port 8080.
