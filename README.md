@@ -17,7 +17,7 @@ Model: YOLOv3
 ## Install dependencies
 
 ```bash
-    pip install requirements.py
+    pip install -r requirements.py
 ```
 
 ## Run service
