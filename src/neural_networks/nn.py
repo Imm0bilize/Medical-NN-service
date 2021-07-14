@@ -125,6 +125,8 @@ class YoloStrategy(Model):
         return np.concatenate([coors, scores[:, np.newaxis], classes[:, np.newaxis]], axis=-1)
 
     def _draw_bbox(self, image, bboxes, rectangle_colors=(255, 0, 0)):
+        image = (image - np.min(image)) / np.max(image)
+        image = image * 255
         image_h, image_w, _ = image.shape
 
         for i, bbox in enumerate(bboxes):
