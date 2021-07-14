@@ -3,30 +3,22 @@ from datetime import datetime
 from typing import Dict
 
 import numpy as np
-import tensorflow as tf
-import tensorflow_io as tfio
+import pydicom as dicom
+from pydicom.filebase import DicomBytesIO
 
 
 def get_dicom_meta(dcm: bytes) -> Dict[str, str]:
-    tags = tf.constant([
-        tfio.image.dicom_tags.InstitutionAddress,
-        tfio.image.dicom_tags.PatientsName,
-        tfio.image.dicom_tags.PatientsBirthDate,
-        tfio.image.dicom_tags.StudyDate,
-        tfio.image.dicom_tags.StudyInstanceUID,
-    ], dtype=tf.uint32)
-    file_meta = tfio.image.decode_dicom_data(dcm, tags=tags).numpy()
+    dcm = dicom.dcmread(DicomBytesIO(dcm))
 
-    tags_name = ['InstitutionAddress', 'PatientsName', 'PatientsBirthDate', 'StudyDate', 'StudyInstanceUID']
     meta = {}
+    tags = ('InstitutionAddress', 'PatientName', 'PatientBirthDate', 'StudyDate', 'StudyInstanceUID')
 
-    for tag_name, value in zip(tags_name, file_meta):
-        if tag_name in ('PatientsBirthDate', 'StudyDate'):
-            tmp = value.decode('UTF-8')
-            tmp = f"{tmp[6:]}.{tmp[4:6]}.{tmp[:4]}"  # day month  year
-            meta.update({tag_name: tmp})
+    for tag in tags:
+        if tag in ('PatientBirthDate', 'StudyDate'):
+            tmp = dcm.get(tag)
+            meta.update({tag: f"{tmp[6:]}.{tmp[4:6]}.{tmp[:4]}"})  # to day.month.year
         else:
-            meta.update({tag_name: value.decode('UTF-8')})
+            meta.update({tag: str(dcm.get(tag))})
 
     meta.update({'AnalysisDate': datetime.now().strftime('%d.%m.%Y %H:%M')})
     return meta
