@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 import pydicom as dicom
@@ -29,6 +29,6 @@ def convert_to_json(meta: Dict[str, str], image: np.ndarray) -> str:
     return json.dumps(data)
 
 
-def get_post_processed_data(dcm: bytes, mask: np.ndarray) -> str:
-    meta = get_dicom_meta(dcm)
-    return convert_to_json(meta, mask)
+def get_post_processed_data(dcms: List[bytes], masks: np.ndarray) -> str:
+    meta = get_dicom_meta(dcms[0])  # get meta from one file
+    return convert_to_json(meta, masks)

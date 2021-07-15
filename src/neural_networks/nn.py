@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import List
 
 import cv2
 import tensorflow as tf
@@ -18,7 +19,7 @@ class Model(ABC):
         pass
 
     @abstractmethod
-    def processing_prediction(self, input_data: np.ndarray, prediction: np.ndarray) -> np.ndarray:
+    def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray) -> np.ndarray:
         pass
 
     @abstractmethod
@@ -142,13 +143,18 @@ class YoloStrategy(Model):
     def load_model(self) -> tf.keras.models.Model:
         return Yolo().build_model()
 
-    def processing_prediction(self, input_data: np.ndarray, prediction: np.ndarray) -> np.ndarray:
-        prediction = [tf.reshape(x, (-1, tf.shape(x)[-1])) for x in prediction]
-        prediction = tf.concat(prediction, axis=0)
+    def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray) -> np.ndarray:
+        processed_prediction = []
+        for data, prediction in zip(inputs_data, predictions):
+            prediction = [tf.reshape(x, (-1, tf.shape(x)[-1])) for x in prediction]
+            prediction = tf.concat(prediction, axis=0)
 
-        bboxes = self._postprocess_boxes(prediction, input_data)
-        bboxes = self._nms(bboxes, method='nms')
-        return self._draw_bbox(input_data, bboxes)
+            bboxes = self._postprocess_boxes(prediction, data)
+            bboxes = self._nms(bboxes, method='nms')
+
+            processed_prediction.append(self._draw_bbox(inputs_data, bboxes))
+
+        return np.array(processed_prediction)
 
     def get_num_interesting_pixels(self) -> int:
         return 0
@@ -170,9 +176,12 @@ class DamageSegmentationStrategy(Model):
     def _get_num_damaged_pixel_in_prediction(self, predictions: np.ndarray) -> int:
         return predictions[predictions > MASK_MERGE_THRESHOLD].size
 
-    def processing_prediction(self, input_data: np.ndarray, prediction: np.ndarray) -> np.ndarray:
-        self._num_damaged_pixel += self._get_num_damaged_pixel_in_prediction(prediction)
-        return self._merge_mask_with_image(input_data, prediction)
+    def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray) -> np.ndarray:
+        self._num_damaged_pixel += self._get_num_damaged_pixel_in_prediction(predictions)
+        return np.array(
+            [self._merge_mask_with_image(x, y)
+             for x, y in zip(inputs_data, predictions)]
+        )
 
     def get_num_interesting_pixels(self) -> int:
         return self._num_damaged_pixel
@@ -233,12 +242,12 @@ class NeuralNetwork:
         return dcm
 
     @tf.autograph.experimental.do_not_convert
-    def create_prediction(self, raw_data: bytes) -> np.ndarray:
-        data = self._prepare_data(raw_data)
-        prediction = self._model.predict(data)
-        prediction = self.strategy.processing_prediction(data.numpy()[0],
-                                                         prediction[0])
-        return prediction
+    def create_prediction(self, raw_data: List[bytes]) -> np.ndarray:
+        data = [self._prepare_data(file) for file in raw_data]
+        predictions = self._model.predict(data)
+        predictions = self.strategy.processing_predictions(data.numpy(),
+                                                           predictions)
+        return predictions
 
     def get_num_interesting_pixels(self) -> int:
         return self.strategy.get_num_interesting_pixels()

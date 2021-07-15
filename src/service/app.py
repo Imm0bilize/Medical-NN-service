@@ -40,7 +40,7 @@ async def create_prediction(file: UploadFile = File(...)):
     if NN is not None:
         set_timer()
         data = await file.read()
-        prediction = NN.create_prediction(data)
+        prediction = NN.create_predictions(data)
         logger.debug('Prediction created')
         return utils.get_post_processed_data(data, prediction)
     else:
