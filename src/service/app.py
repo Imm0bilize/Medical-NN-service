@@ -1,9 +1,11 @@
 import os
 from threading import Timer
+from typing import List
 
 import uvicorn
 from fastapi import FastAPI, File, UploadFile
 from loguru import logger
+from pydantic import BaseModel
 
 import src.service.utils as utils
 from src.service.argparser import args
@@ -18,6 +20,11 @@ NN = None
 
 logger.add(os.path.join(args.path_to_log_dir, 'debug.log'), format='{time} {level} {message}',
            level='DEBUG', rotation='512 KB', compression='zip')
+
+
+class Item(BaseModel):
+    name: str
+    paths: List[str]
 
 
 def stopping_service():
@@ -35,17 +42,50 @@ def set_timer():
     timer.start()
 
 
-@app.post('/upload')
-async def create_prediction(file: UploadFile = File(...)):
+def create_prediction(data):
     if NN is not None:
         set_timer()
-        data = await file.read()
         prediction = NN.create_predictions(data)
         logger.debug('Prediction created')
-        return utils.get_post_processed_data(data, prediction)
+        return prediction
     else:
+        raise ValueError
+
+
+@app.post('/upload')
+async def upload_file(file: UploadFile = File(...)):
+    data = await file.read()
+    try:
+        prediction = create_prediction(data)
+        return utils.get_post_processed_data(data, prediction)
+    except ValueError:
         logger.error('The session was not created, but there was an attempt to upload file')
         return {'error': 'the session was not created'}
+
+
+@app.post('/upload_local')
+def upload_local_file(item: Item):
+    def load(path):
+        with open(path, 'rb') as file:
+            return file.read()
+
+    batch_size = 16
+    paths = item.paths
+    strategy = NN.get_strategy()
+    for idx in range((len(paths)//batch_size)+1):
+        data = []
+        for path in paths[batch_size*idx:batch_size*(idx+1)]:
+            try:
+                loaded_file = load(path)
+                data.append(loaded_file)
+            except OSError as e:
+                logger.error(f'Error: {e} on path {path}, skipped')
+
+        if len(data) != 0:
+            predictions = create_prediction(data)
+            utils.save_prediction(paths[batch_size*idx:batch_size*(idx+1)], predictions, strategy)
+    return {'info': 'Prediction created'}
+            
 
 
 @app.get('/start/{params}')
@@ -78,11 +118,10 @@ def start_session(params: str):
 
 @app.get('/close')
 def close_session():
-    global pred
-    interesting_pixels = NN.get_num_interesting_pixels()
-    pred = None
+    global NN
+    NN = None
     logger.debug('Session stopping')
-    return {'info': 'Session stopping', 'interesting_pixels': interesting_pixels}
+    return {'info': 'Session stopping'}
 
 
 @app.get('/')
@@ -94,7 +133,7 @@ def start_page():
 def main():
     logger.debug(f"\nStarting service with params:\n"
                  f"\tHost: {args.host}, Port: 8080\n"
-                 f"\tСheck the working capacity : http://{args.host}:8080/\n"
+                 f"\tCheck the working capacity : http://{args.host}:8080/\n"
                  f"\tLog file: {os.path.join(args.path_to_log_dir, 'debug.log')}")
     uvicorn.run("src.service.app:app", host=args.host, port=8080, log_level="warning")
 

@@ -5,6 +5,9 @@ from typing import Dict, List
 import numpy as np
 import pydicom as dicom
 from pydicom.filebase import DicomBytesIO
+from PIL import Image
+
+from src.service.app import logger
 
 
 def get_dicom_meta(dcm: bytes) -> Dict[str, str]:
@@ -32,3 +35,12 @@ def convert_to_json(meta: Dict[str, str], image: np.ndarray) -> str:
 def get_post_processed_data(dcms: List[bytes], masks: np.ndarray) -> str:
     meta = get_dicom_meta(dcms[0])  # get meta from one file
     return convert_to_json(meta, masks)
+
+
+def save_prediction(paths, predictions, additions_name):
+    for path, prediction in zip(paths, predictions):
+        try:
+            img = Image.fromarray(prediction)
+            img.save(path[:-4] + '-' + additions_name + '.png')
+        except OSError:
+            logger.error(f'File on path {path} don`t saved, skipped...')

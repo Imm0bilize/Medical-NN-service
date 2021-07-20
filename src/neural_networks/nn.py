@@ -22,9 +22,6 @@ class Model(ABC):
     def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray) -> np.ndarray:
         pass
 
-    @abstractmethod
-    def get_num_interesting_pixels(self) -> int:
-        pass
 
 
 class YoloStrategy(Model):
@@ -156,14 +153,9 @@ class YoloStrategy(Model):
 
         return np.array(processed_prediction)
 
-    def get_num_interesting_pixels(self) -> int:
-        return 0
 
 
 class DamageSegmentationStrategy(Model):
-    def __init__(self):
-        self._num_damaged_pixel = 0
-
     def _merge_mask_with_image(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
         dcm = (image - np.min(image)) / np.max(image)
         dcm = dcm * 255
@@ -173,18 +165,11 @@ class DamageSegmentationStrategy(Model):
         r = Image.fromarray(tmp)
         return np.array(Image.merge("RGB", (r, g, b)))
 
-    def _get_num_damaged_pixel_in_prediction(self, predictions: np.ndarray) -> int:
-        return predictions[predictions > MASK_MERGE_THRESHOLD].size
-
     def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray) -> np.ndarray:
-        self._num_damaged_pixel += self._get_num_damaged_pixel_in_prediction(predictions)
         return np.array(
             [self._merge_mask_with_image(x, y)
              for x, y in zip(inputs_data, predictions)]
         )
-
-    def get_num_interesting_pixels(self) -> int:
-        return self._num_damaged_pixel
 
     def load_model(self) -> tf.keras.models.Model:
         return DamageSegmentation().build_model()
@@ -202,6 +187,12 @@ class NeuralNetwork:
             self._model = self.strategy.load_model()
         except OSError as e:
             models_weights_isnt_defined()
+
+    def get_strategy(self):
+        if isinstance(self.strategy, DamageSegmentationStrategy):
+            return 'dmg-seg'
+        elif isinstance(self.strategy, YoloStrategy):
+            return 'dmg-det'
 
     def _set_outside_scanner_to_air(self, raw_pixel):
         raw_pixel[raw_pixel <= -1000] = 0
@@ -238,16 +229,10 @@ class NeuralNetwork:
         dcm = self._normalize(dcm)
         dcm = tf.convert_to_tensor(dcm)
         dcm = tf.image.grayscale_to_rgb(dcm)
-        dcm = tf.expand_dims(dcm, axis=0)
         return dcm
 
-    @tf.autograph.experimental.do_not_convert
-    def create_prediction(self, raw_data: List[bytes]) -> np.ndarray:
-        data = [self._prepare_data(file) for file in raw_data]
+    def create_predictions(self, raw_data: List[bytes]) -> np.ndarray:
+        data = np.array([self._prepare_data(file) for file in raw_data])
         predictions = self._model.predict(data)
-        predictions = self.strategy.processing_predictions(data.numpy(),
-                                                           predictions)
+        predictions = self.strategy.processing_predictions(data, predictions)
         return predictions
-
-    def get_num_interesting_pixels(self) -> int:
-        return self.strategy.get_num_interesting_pixels()
