@@ -10,6 +10,7 @@ from PIL import Image
 
 from .models import DamageSegmentation, Yolo
 from .error_handler import incorrect_start_sess_param, models_weights_isnt_defined
+from .utils import use_multiple_gpu
 from .config import MIN_BOUND, MAX_BOUND, DICOM_BACKGROUND, MASK_MERGE_THRESHOLD
 
 
@@ -21,7 +22,6 @@ class Model(ABC):
     @abstractmethod
     def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray) -> np.ndarray:
         pass
-
 
 
 class YoloStrategy(Model):
@@ -137,6 +137,7 @@ class YoloStrategy(Model):
             cv2.rectangle(image, (x1, y1), (x2, y2), bbox_color, bbox_thick * 2)
         return image
 
+    @use_multiple_gpu
     def load_model(self) -> tf.keras.models.Model:
         return Yolo().build_model()
 
@@ -152,7 +153,6 @@ class YoloStrategy(Model):
             processed_prediction.append(self._draw_bbox(inputs_data, bboxes))
 
         return np.array(processed_prediction)
-
 
 
 class DamageSegmentationStrategy(Model):
@@ -171,6 +171,7 @@ class DamageSegmentationStrategy(Model):
              for x, y in zip(inputs_data, predictions)]
         )
 
+    @use_multiple_gpu
     def load_model(self) -> tf.keras.models.Model:
         return DamageSegmentation().build_model()
 
