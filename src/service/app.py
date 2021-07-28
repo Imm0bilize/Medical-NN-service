@@ -71,7 +71,7 @@ def upload_local_file(item: Item):
 
     batch_size = 16
     paths = item.paths
-    strategy = NN.get_strategy()
+    strategy_name = NN.get_strategy()
     for idx in range((len(paths)//batch_size)+1):
         data = []
         for path in paths[batch_size*idx:batch_size*(idx+1)]:
@@ -83,10 +83,11 @@ def upload_local_file(item: Item):
 
         if len(data) != 0:
             predictions = create_prediction(data)
-            utils.save_prediction(paths[batch_size*idx:batch_size*(idx+1)], predictions, strategy)
+            utils.save_prediction(paths[batch_size*idx:batch_size*(idx+1)],
+                                  predictions, strategy_name,
+                                  folder_name=item.name)
     return {'info': 'Prediction created'}
             
-
 
 @app.get('/start/{params}')
 def start_session(params: str):

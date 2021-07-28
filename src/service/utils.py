@@ -1,3 +1,4 @@
+import os
 import json
 from datetime import datetime
 from typing import Dict, List
@@ -37,10 +38,14 @@ def get_post_processed_data(dcms: List[bytes], masks: np.ndarray) -> str:
     return convert_to_json(meta, masks)
 
 
-def save_prediction(paths, predictions, additions_name):
+def save_prediction(paths, predictions, additions_name, folder_name):
+    sep = os.sep
     for path, prediction in zip(paths, predictions):
         try:
             img = Image.fromarray(prediction)
-            img.save(path[:-4] + '-' + additions_name + '.png')
+            file_name = path.split(sep)[-1]   # take only file name from path
+            img.save(
+                os.path.join(f"{sep}patients", folder_name, file_name[:-4] + '-' + additions_name + '.png')
+            )
         except OSError:
             logger.error(f'File on path {path} don`t saved, skipped...')
