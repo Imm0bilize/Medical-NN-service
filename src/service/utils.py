@@ -1,4 +1,3 @@
-import os
 import json
 from datetime import datetime
 from typing import Dict, List
@@ -7,8 +6,6 @@ import numpy as np
 import pydicom as dicom
 from pydicom.filebase import DicomBytesIO
 from PIL import Image
-
-from src.service.app import logger
 
 
 def get_dicom_meta(dcm: bytes) -> Dict[str, str]:
@@ -38,14 +35,10 @@ def get_post_processed_data(dcms: List[bytes], masks: np.ndarray) -> str:
     return convert_to_json(meta, masks)
 
 
-def save_prediction(paths, predictions, additions_name, folder_name):
-    sep = os.sep
+def save_prediction(logger, paths, predictions, additions_name):
     for path, prediction in zip(paths, predictions):
         try:
             img = Image.fromarray(prediction)
-            file_name = path.split(sep)[-1]   # take only file name from path
-            img.save(
-                os.path.join(f"{sep}patients", folder_name, file_name[:-4] + '-' + additions_name + '.png')
-            )
+            img.save(path[:-4] + '-' + additions_name + '.png')
         except OSError:
             logger.error(f'File on path {path} don`t saved, skipped...')
