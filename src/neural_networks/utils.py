@@ -16,4 +16,3 @@ def get_all_sys_info(logger):
             logger.debug(f"{gpu}")
     else:
         logger.warning("GPU not found")
-    logger.debug("#" * 37)
