@@ -10,7 +10,6 @@ from PIL import Image
 
 from .models import DamageSegmentation, Yolo
 from .error_handler import incorrect_start_sess_param, models_weights_isnt_defined
-from .utils import use_multiple_gpu
 from .config import MIN_BOUND, MAX_BOUND, DICOM_BACKGROUND, MASK_MERGE_THRESHOLD
 
 
@@ -21,6 +20,10 @@ class Model(ABC):
 
     @abstractmethod
     def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray) -> np.ndarray:
+        pass
+
+    @abstractmethod
+    def get_name_working_gpu(self) -> str:
         pass
 
 
@@ -137,22 +140,35 @@ class YoloStrategy(Model):
             cv2.rectangle(image, (x1, y1), (x2, y2), bbox_color, bbox_thick * 2)
         return image
 
-    @use_multiple_gpu
     def load_model(self) -> tf.keras.models.Model:
         return Yolo().build_model()
 
-    def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray) -> np.ndarray:
+    def get_name_working_gpu(self) -> str:
+        return "/GPU:1"
+
+    def processing_predictions(self, inputs_data: np.ndarray, predictions: List[np.ndarray]) -> np.ndarray:
+        # TODO переписать алгоритм
         processed_prediction = []
-        for data, prediction in zip(inputs_data, predictions):
+        n_pred = []
+        img_dict = {}
+        for arr in predictions:
+            for i, sub in enumerate(arr):
+                if not i in img_dict:
+                    img_dict[i] = []
+                sub_arr = img_dict[i]
+                sub_arr.append(sub)
+        for v in img_dict.values():
+            n_pred.append(np.array(v, dtype=object))
+        for i, prediction in enumerate(n_pred):
             prediction = [tf.reshape(x, (-1, tf.shape(x)[-1])) for x in prediction]
             prediction = tf.concat(prediction, axis=0)
 
-            bboxes = self._postprocess_boxes(prediction, data)
+            bboxes = self._postprocess_boxes(prediction, inputs_data[i])
             bboxes = self._nms(bboxes, method='nms')
 
-            processed_prediction.append(self._draw_bbox(inputs_data, bboxes))
+            processed_prediction.append(self._draw_bbox(inputs_data[i], bboxes))
 
-        return np.array(processed_prediction)
+        return np.array(processed_prediction, dtype=np.uint8)
 
 
 class DamageSegmentationStrategy(Model):
@@ -171,9 +187,11 @@ class DamageSegmentationStrategy(Model):
              for x, y in zip(inputs_data, predictions)]
         )
 
-    @use_multiple_gpu
     def load_model(self) -> tf.keras.models.Model:
         return DamageSegmentation().build_model()
+
+    def get_name_working_gpu(self) -> str:
+        return "/GPU:0"
 
 
 class NeuralNetwork:
@@ -182,18 +200,14 @@ class NeuralNetwork:
             'ct-dmg-seg': DamageSegmentationStrategy,
             'ct-dmg-det': YoloStrategy
         }
-        self.strategy = params.get(param,
+        self._strategy = params.get(param,
                                    incorrect_start_sess_param)()
+        self._gpu_name = self._strategy.get_name_working_gpu()
+
         try:
-            self._model = self.strategy.load_model()
+            self._model = self._strategy.load_model()
         except OSError as e:
             models_weights_isnt_defined()
-
-    def get_strategy(self):
-        if isinstance(self.strategy, DamageSegmentationStrategy):
-            return 'dmg-seg'
-        elif isinstance(self.strategy, YoloStrategy):
-            return 'dmg-det'
 
     def _set_outside_scanner_to_air(self, raw_pixel):
         raw_pixel[raw_pixel <= -1000] = 0
@@ -234,6 +248,7 @@ class NeuralNetwork:
 
     def create_predictions(self, raw_data: List[bytes]) -> np.ndarray:
         data = np.array([self._prepare_data(file) for file in raw_data])
-        predictions = self._model.predict(data)
-        predictions = self.strategy.processing_predictions(data, predictions)
+        with tf.device(self._gpu_name):
+            predictions = self._model.predict(data)
+        predictions = self._strategy.processing_predictions(data, predictions)
         return predictions
