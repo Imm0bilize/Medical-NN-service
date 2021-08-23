@@ -10,7 +10,8 @@ from PIL import Image
 
 from .models import DamageSegmentation, Yolo
 from .error_handler import incorrect_start_sess_param, models_weights_isnt_defined
-from .config import MIN_BOUND, MAX_BOUND, DICOM_BACKGROUND, MASK_MERGE_THRESHOLD
+from .config import MIN_BOUND, MAX_BOUND, DICOM_BACKGROUND, MASK_MERGE_THRESHOLD, IMG_SIZE
+from .utils import resize_predictions
 
 
 class Model(ABC):
@@ -19,7 +20,7 @@ class Model(ABC):
         pass
 
     @abstractmethod
-    def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray) -> np.ndarray:
+    def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray, original_size: int) -> np.ndarray:
         pass
 
     @abstractmethod
@@ -146,7 +147,7 @@ class YoloStrategy(Model):
     def get_name_working_gpu(self) -> str:
         return "/GPU:1"
 
-    def processing_predictions(self, inputs_data: np.ndarray, predictions: List[np.ndarray]) -> np.ndarray:
+    def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray, original_size: int) -> np.ndarray:
         # TODO переписать алгоритм
         processed_prediction = []
         n_pred = []
@@ -167,7 +168,8 @@ class YoloStrategy(Model):
             bboxes = self._nms(bboxes, method='nms')
 
             processed_prediction.append(self._draw_bbox(inputs_data[i], bboxes))
-
+        if original_size != IMG_SIZE:
+            return resize_predictions(processed_prediction, original_size=original_size)
         return np.array(processed_prediction, dtype=np.uint8)
 
 
@@ -181,11 +183,15 @@ class DamageSegmentationStrategy(Model):
         r = Image.fromarray(tmp)
         return np.array(Image.merge("RGB", (r, g, b)))
 
-    def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray) -> np.ndarray:
-        return np.array(
-            [self._merge_mask_with_image(x, y)
-             for x, y in zip(inputs_data, predictions)]
+    def processing_predictions(self, inputs_data: np.ndarray, predictions: np.ndarray, original_size: int) -> np.ndarray:
+        processed_predictions = np.array(
+            [self._merge_mask_with_image(x, y) for x, y in zip(inputs_data, predictions)],
+            dtype=np.uint8
         )
+        
+        if original_size != IMG_SIZE:
+            return resize_predictions(processed_predictions, original_size=original_size)
+        return processed_predictions
 
     def load_model(self) -> tf.keras.models.Model:
         return DamageSegmentation().build_model()
@@ -203,6 +209,7 @@ class NeuralNetwork:
         self._strategy = params.get(param,
                                    incorrect_start_sess_param)()
         self._gpu_name = self._strategy.get_name_working_gpu()
+        self._image_size = 512
 
         try:
             self._model = self._strategy.load_model()
@@ -237,18 +244,25 @@ class NeuralNetwork:
         data = np.where(data < 0.0, 0.0, data)
         return data
 
-    def _prepare_data(self, raw_data: bytes):
-        raw = DicomBytesIO(raw_data)
-        dcm = dicom.dcmread(raw)
+    def _prepare_data(self, path_to_file):
+        dcm = dicom.read_file(path_to_file)
         dcm = self._transform_to_hu(dcm)
         dcm = self._normalize(dcm)
-        dcm = tf.convert_to_tensor(dcm)
+        dcm = dcm.astype(np.float32)
+        dcm = tf.convert_to_tensor(dcm, dtype=tf.float32)
+
+        if IMG_SIZE != dcm.shape[0]:
+            self._image_size = dcm.shape[0]
+            dcm = tf.image.resize(dcm, size=[IMG_SIZE, IMG_SIZE])
         dcm = tf.image.grayscale_to_rgb(dcm)
         return dcm
 
-    def create_predictions(self, raw_data: List[bytes]) -> np.ndarray:
-        data = np.array([self._prepare_data(file) for file in raw_data])
+    @tf.autograph.experimental.do_not_convert
+    def create_predictions(self, paths_to_data: List[str]) -> np.ndarray:
+        data = np.zeros((len(paths_to_data), 512, 512, 3))
+        for i,path in enumerate(paths_to_data):
+            data[i] = self._prepare_data(path)
         with tf.device(self._gpu_name):
             predictions = self._model.predict(data)
-        predictions = self._strategy.processing_predictions(data, predictions)
+        predictions = self._strategy.processing_predictions(data, predictions, self._image_size)
         return predictions

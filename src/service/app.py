@@ -60,29 +60,28 @@ def post_message_on_socket(research_name, nn_name):
         socket.close()
 
 
-def load(path):
-    with open(path, 'rb') as file:
-        return file.read()
-
-
-@logger.catch
-def create_prediction(nn_instance, nn_name, research_name, research_paths):
-    batch_size = 4
-    start_time = datetime.now()
-    for idx in range((len(research_paths)//batch_size)+1):
-        data = []
-        for path in research_paths[batch_size*idx:batch_size*(idx+1)]:
-            try:
-                loaded_file = load(path)
-                data.append(loaded_file)
-            except OSError as e:
-                logger.error(f'Error: {e} on path {path}, skipped')
-        if len(data) != 0:
-            predictions = nn_instance.create_predictions(data)
-            utils.save_prediction(logger, research_paths[batch_size*idx:batch_size*(idx+1)], predictions,
-                                  additions_name=nn_name)
-    logger.debug(f'Finished {nn_name} predictions for {research_name} | Elapsed time:{datetime.now()-start_time}')
-
+# def load(path):
+#     with open(path, 'rb') as file:
+#         return file.read()
+#
+#
+# @logger.catch
+# def create_prediction(nn_instance, nn_name, research_name, research_paths):
+#     batch_size = 4
+#     start_time = datetime.now()
+#     for idx in range((len(research_paths)//batch_size)+1):
+#         data = []
+#         for path in research_paths[batch_size*idx:batch_size*(idx+1)]:
+#             try:
+#                 loaded_file = load(path)
+#                 data.append(loaded_file)
+#             except OSError as e:
+#                 logger.error(f'Error: {e} on path {path}, skipped')
+#         if len(data) != 0:
+#             predictions = nn_instance.create_predictions(data)
+#             utils.save_prediction(logger, research_paths[batch_size*idx:batch_size*(idx+1)], predictions,
+#                                   additions_name=nn_name)
+#     logger.debug(f'Finished {nn_name} predictions for {research_name} | Elapsed time:{datetime.now()-start_time}')
 
 
 @app.post('/upload')
